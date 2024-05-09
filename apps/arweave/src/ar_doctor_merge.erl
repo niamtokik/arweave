@@ -42,10 +42,18 @@ merge(DataDir, StorageModule, StoreID, [SrcDir | SrcDirs]) ->
 	merge(DataDir, StorageModule, StoreID, SrcDirs).
 
 move_chunk_storage(SrcDir, DstDir) ->
-	MkDir = io_lib:format("mkdir -p ~s/chunk_storage ~s/rocksdb~n", [DstDir, DstDir]),
+  % @TODO add logging
+  % @TODO to test
+	% MkDir = io_lib:format("mkdir -p ~s/chunk_storage ~s/rocksdb~n", [DstDir, DstDir]),
+	% ar:console(MkDir),
+	% os:cmd(MkDir),
+  ChunkStorageDir = filename:join(Dstdir, "chunk_storage"),
+  RocksdbDir = filename:join(DstDir, "rocksdb"),
+  ok = file:make_dir(ChunkStorageDir),
+  ok = file:make_dir(RocksdbDir),
+
+  % @TODO find a better alternative than using mv (portability--)
 	Mv = io_lib:format("mv ~s/chunk_storage/* ~s/chunk_storage~n", [SrcDir, DstDir]),
-	ar:console(MkDir),
-	os:cmd(MkDir),
 	ar:console(Mv),
 	os:cmd(Mv).
 

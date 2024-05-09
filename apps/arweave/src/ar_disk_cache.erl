@@ -183,7 +183,7 @@ init([]) ->
 handle_call(reset, _From, State) ->
 	Path = State#state.path,
 	?LOG_DEBUG([{event, reset_disk_cache}, {path, Path}]),
-	os:cmd("rm -r " ++ Path ++ "/*"),
+  ok = file:del_dir_r(Path),
 	BlockPath = filename:join(Path, ?DISK_CACHE_BLOCK_DIR),
 	TXPath = filename:join(Path, ?DISK_CACHE_TX_DIR),
 	ok = filelib:ensure_dir(BlockPath ++ "/"),
