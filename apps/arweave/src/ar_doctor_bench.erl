@@ -149,7 +149,7 @@ random_dev_pread(_DataDir, _StoreID, 0, SumBytes, SumElapsedTime) ->
 	ar:console("*Random* device pread ~B MiB in ~B ms (~B MiB/s)~n", [SumBytes div ?MiB, SumElapsedTime, ReadRate]);
 random_dev_pread(DataDir, StoreID, Count, SumBytes, SumElapsedTime) ->
 	Filepath = hd(ar_chunk_storage:list_files(DataDir, StoreID)),
-	Device = get_mounted_device(Filepath),
+  {ok, Device} = get_mounted_device(Filepath),
 	{ok, File} = file:open(Device, [read, raw, binary]),
 	Files = [{Device, File, ?PARTITION_SIZE} || _ <- lists:seq(1, ?NUM_FILES)],
 	StartTime = erlang:monotonic_time(),
@@ -207,7 +207,7 @@ dd_devs_read(_DataDir, _StoreID, 0, SumBytes, SumElapsedTime) ->
 	ar:console("*dd* multi devs read ~B MiB in ~B ms (~B MiB/s)~n", [SumBytes div ?MiB, SumElapsedTime, ReadRate]);
 dd_devs_read(DataDir, StoreID, Count, SumBytes, SumElapsedTime) ->
 	Filepath = hd(ar_chunk_storage:list_files(DataDir, StoreID)),
-	Device = get_mounted_device(Filepath),
+	{ok, Device} = get_mounted_device(Filepath),
 	Devices = [{Device, not_set, ?PARTITION_SIZE} || _ <- lists:seq(1, ?NUM_FILES)],
 	StartTime = erlang:monotonic_time(),
 	Bytes = dd_files(Devices, ?RECALL_RANGE_SIZE, 0),
@@ -222,7 +222,7 @@ dd_dev_read(_DataDir, _StoreID, 0, SumBytes, SumElapsedTime) ->
 	ar:console("*dd* single dev read ~B MiB in ~B ms (~B MiB/s)~n", [SumBytes div ?MiB, SumElapsedTime, ReadRate]);
 dd_dev_read(DataDir, StoreID, Count, SumBytes, SumElapsedTime) ->
 	Filepath = hd(ar_chunk_storage:list_files(DataDir, StoreID)),
-	Device = get_mounted_device(Filepath),
+	{ok, Device} = get_mounted_device(Filepath),
 	StartTime = erlang:monotonic_time(),
 	dd(Device, ?PARTITION_SIZE, ?RECALL_RANGE_SIZE, ?NUM_FILES),
 	EndTime = erlang:monotonic_time(),
@@ -231,9 +231,10 @@ dd_dev_read(DataDir, StoreID, Count, SumBytes, SumElapsedTime) ->
 	dd_dev_read(DataDir, StoreID, Count - 1, SumBytes + Bytes, SumElapsedTime + ElapsedTime).
 	
 get_mounted_device(FilePath) ->
-	Cmd = "df " ++ FilePath ++ " | awk 'NR==2 {print $1}'",
-	Device = os:cmd(Cmd),
-	string:trim(Device, both, "\n").
+	% Cmd = "df " ++ FilePath ++ " | awk 'NR==2 {print $1}'",
+	% Device = os:cmd(Cmd),
+	% string:trim(Device, both, "\n").
+  ar_mount:get_mounted_device(FilePath).
 	
 open_files(DataDir, StoreID) ->
 	AllFilepaths = ar_chunk_storage:list_files(DataDir, StoreID),
@@ -266,6 +267,7 @@ dd(Filepath, FileSize, Size, Count) ->
 	Blocks = Bytes div BlockSize,
 	MaxOffset = max(1, FileSize - Bytes),
 	Position = rand:uniform(MaxOffset) div BlockSize,
+  % @TODO find an alternative to dd (can't be used on Windows)
 	Command = io_lib:format("dd iflag=direct if=~s skip=~B of=/dev/null bs=~B count=~B", [Filepath, Position, BlockSize, Blocks]),
 	% ar:console("~s~n", [Command]),
 	os:cmd(Command).

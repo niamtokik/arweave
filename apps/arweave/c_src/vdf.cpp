@@ -5,6 +5,7 @@
 #include <openssl/sha.h>
 #include <gmp.h>
 #include "vdf.h"
+#include <cstdlib>
 
 struct vdf_sha_thread_arg {
 	unsigned char* saltBuffer;

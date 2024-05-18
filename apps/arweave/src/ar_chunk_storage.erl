@@ -714,11 +714,7 @@ defrag_files([Filepath | Rest]) ->
 	?LOG_DEBUG([{event, defragmenting_file}, {file, Filepath}]),
 	ar:console("Defragmenting ~s...~n", [Filepath]),
 	TmpFilepath = Filepath ++ ".tmp",
-  %% @TODO add rsync as dependencies
-  %% @TODO find an alternative to rsync if needed
-	DefragCmd = io_lib:format("rsync --sparse --quiet ~ts ~ts", [Filepath, TmpFilepath]),
-	%% We expect nothing to be returned on successful calls.
-	[] = os:cmd(DefragCmd),
+  ar_rsync:execute(Filepath, TmpFilepath),
   ok = file:rename(TmpFilepath, Filepath),
 	ar:console("Defragmented ~s...~n", [Filepath]),
 	defrag_files(Rest).
