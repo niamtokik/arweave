@@ -1,39 +1,65 @@
-%%%
+%%%===================================================================
+%%% @license GGPLv2
 %%% @doc Arweave server entrypoint and basic utilities.
+%%% 
+%%% == Supported feature flags (default behaviour)
 %%%
+%%% <ul>
+%%% <li>`http_logging' (default `false')</li>
+%%% <li>`disk_logging' (default `false')</li>
+%%% <li>`miner_logging' (default `true')</li>
+%%% <li>`subfield_queries' (default `false')</li>
+%%% <li>`blacklist' (default `true')</li>
+%%% <li>`time_syncing' (default `true')</li>
+%%% </ul>
+%%%
+%%% @end
+%%%===================================================================
 -module(ar).
-
 -behaviour(application).
-
 -export([main/0, main/1, create_wallet/0, create_wallet/1,
 		benchmark_packing/1, benchmark_packing/0, benchmark_vdf/0,
 		benchmark_hash/1, benchmark_hash/0, start/0,
 		start/1, start/2, stop/1, stop_dependencies/0, start_dependencies/0,
 		tests/0, tests/1, tests/2, shell/0, stop_shell/0,
 		docs/0, shutdown/1, console/1, console/2]).
-
 -include_lib("arweave/include/ar.hrl").
 -include_lib("arweave/include/ar_consensus.hrl").
 -include_lib("arweave/include/ar_config.hrl").
-
 -include_lib("eunit/include/eunit.hrl").
 
-%% Supported feature flags (default behaviour)
-% http_logging (false)
-% disk_logging (false)
-% miner_logging (true)
-% subfield_queries (false)
-% blacklist (true)
-% time_syncing (true)
-
+%%--------------------------------------------------------------------
 %% @doc Command line program entrypoint. Takes a list of arguments.
+%% @end
+%% @see show_help/0
+%% @see main/1
+%%--------------------------------------------------------------------
+-spec main() -> Return when
+      Return :: ok.
+
 main() ->
 	show_help().
+
+%%--------------------------------------------------------------------
+%% @doc Command line program entrypoint. Take a list or arguments.
+%% @end
+%% @see show_hep/1
+%% @see start/1
+%%--------------------------------------------------------------------
+-spec main(Args) -> Return when
+      Args :: [string()],
+      Return :: ok.
 
 main("") ->
 	show_help();
 main(Args) ->
 	start(parse_config_file(Args, [], #config{})).
+
+%%--------------------------------------------------------------------
+%% @doc Print help message.
+%% @end
+%%--------------------------------------------------------------------
+-spec show_help() -> ok.
 
 show_help() ->
 	io:format("Usage: arweave-server [options]~n"),
@@ -336,6 +362,10 @@ show_help() ->
 	),
 	erlang:halt().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 parse_config_file(["config_file", Path | Rest], Skipped, _) ->
 	case read_config_from_file(Path) of
 		{ok, Config} ->
@@ -353,12 +383,23 @@ parse_config_file([], Skipped, Config) ->
 	Args = lists:reverse(Skipped),
 	parse_cli_args(Args, Config).
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%% @see ar_config:parse/1
+%%--------------------------------------------------------------------
 read_config_from_file(Path) ->
 	case file:read_file(Path) of
 		{ok, FileData} -> ar_config:parse(FileData);
 		{error, _} -> {error, file_unreadable, Path}
 	end.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 parse_cli_args([], C) -> C;
 parse_cli_args(["mine" | Rest], C) ->
 	parse_cli_args(Rest, C#config{ mine = true });
@@ -632,7 +673,10 @@ parse_cli_args([Arg | _Rest], _O) ->
 	io:format("~nUnknown argument: ~s.~n", [Arg]),
 	show_help().
 
+%%--------------------------------------------------------------------
 %% @doc Start an Arweave node on this BEAM.
+%% @end
+%%--------------------------------------------------------------------
 start() ->
 	start(?DEFAULT_HTTP_IFACE_PORT).
 start(Port) when is_integer(Port) ->
@@ -676,10 +720,18 @@ start(Config) ->
 	end,
 	start_dependencies().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 validate_repack_in_place_config(Config) ->
 	Modules = [ar_storage_module:id(M) || M <- Config#config.storage_modules],
 	validate_repack_in_place_config(Config#config.repack_in_place_storage_modules, Modules).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 validate_repack_in_place_config([], _Modules) ->
 	ok;
 validate_repack_in_place_config([{Module, _ToPacking} | L], Modules) ->
@@ -694,6 +746,10 @@ validate_repack_in_place_config([{Module, _ToPacking} | L], Modules) ->
 			validate_repack_in_place_config(L, Modules)
 	end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 validate_cm_pool_config(Config) ->
 	case {Config#config.coordinated_mining, Config#config.is_pool_server} of
 		{true, true} ->
@@ -722,6 +778,10 @@ validate_cm_pool_config(Config) ->
 			ok
 	end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 start(normal, _Args) ->
 	{ok, Config} = application:get_env(arweave, config),
 	%% Configure logging for console output.
@@ -781,6 +841,10 @@ start(normal, _Args) ->
 	%% Start Arweave.
 	ar_sup:start_link().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 set_mining_address(#config{ mining_addr = not_set } = C) ->
 	W = ar_wallet:get_or_create_wallet([{?RSA_SIGN_ALG, 65537}]),
 	Addr = ar_wallet:to_address(W),
@@ -810,6 +874,13 @@ set_mining_address(#config{ mining_addr = Addr, cm_exit_peer = CmExitPeer,
 			ok
 	end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see create_wallet_fail/0
+%% @see ar_wallet:new_keyfile/1
+%% @see ar_wallet:to_address/1
+%%--------------------------------------------------------------------
 create_wallet([DataDir]) ->
 	case filelib:is_dir(DataDir) of
 		false ->
@@ -824,48 +895,104 @@ create_wallet([DataDir]) ->
 create_wallet(_) ->
 	create_wallet_fail().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see create_wallet_fail/0
+%%--------------------------------------------------------------------
 create_wallet() ->
 	create_wallet_fail().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 create_wallet_fail() ->
 	io:format("Usage: ./bin/create-wallet [data_dir]~n"),
 	erlang:halt().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see benchmark_packing/1
+%%--------------------------------------------------------------------
 benchmark_packing() ->
 	benchmark_packing([]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see ar_bench_timer:initialize/0
+%% @see ar_bench_packing:run_benchmark_from_cli/1
+%%--------------------------------------------------------------------
 benchmark_packing(Args) ->
 	ar_bench_timer:initialize(),
 	ar_bench_packing:run_benchmark_from_cli(Args),
 	erlang:halt().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see ar_bench_vdf:run_benchmark/0
+%%--------------------------------------------------------------------
 benchmark_vdf() ->
 	ar_bench_vdf:run_benchmark(),
 	erlang:halt().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see benchmark_hash/1
+%%--------------------------------------------------------------------
 benchmark_hash() ->
 	benchmark_hash([]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see ar_bench_hash:run_benchmark_from_cli/1
+%%--------------------------------------------------------------------
 benchmark_hash(Args) ->
 	ar_bench_hash:run_benchmark_from_cli(Args),
 	erlang:halt().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 shutdown([NodeName]) ->
 	rpc:cast(NodeName, init, stop, []).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 stop(_State) ->
 	ok.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 stop_dependencies() ->
 	{ok, [_Kernel, _Stdlib, _SASL, _OSMon | Deps]} = application:get_key(arweave, applications),
 	lists:foreach(fun(Dep) -> application:stop(Dep) end, Deps).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 start_dependencies() ->
 	{ok, Config} = application:get_env(arweave, config),
 	{ok, _} = application:ensure_all_started(arweave, permanent),
 	ar_config:log_config(Config).
 
-%% One scheduler => one dirty scheduler => Calculating a RandomX hash, e.g.
-%% for validating a block, will be blocked on initializing a RandomX dataset,
-%% which takes minutes.
+%%--------------------------------------------------------------------
+%% @doc One scheduler => one dirty scheduler => Calculating a RandomX
+%% hash, e.g.  for validating a block, will be blocked on initializing
+%% a `RandomX' dataset, which takes minutes.
+%% @end
+%%--------------------------------------------------------------------
 warn_if_single_scheduler() ->
 	case erlang:system_info(schedulers_online) of
 		1 ->
@@ -875,19 +1002,41 @@ warn_if_single_scheduler() ->
 			ok
 	end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see start_for_tests/1
+%% @see ar_test_node:boot_peers/0
+%%--------------------------------------------------------------------
 shell() ->
 	Config = #config{ debug = true },
 	start_for_tests(Config),
 	ar_test_node:boot_peers().
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see ar_test_node:stop_peers/0
+%% @see init:stop/0
+%%--------------------------------------------------------------------
 stop_shell() ->
 	ar_test_node:stop_peers(),
 	init:stop().
 
+%%--------------------------------------------------------------------
 %% @doc Run all of the tests associated with the core project.
+%% @end
+%% @see tests/2
+%%--------------------------------------------------------------------
 tests() ->
 	tests([], #config{ debug = true }).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @see start_for_tests/1
+%% @see ar_test_node:boot_peers/0
+%%--------------------------------------------------------------------
 tests(Mods, Config) when is_list(Mods) ->
 	try
 		start_for_tests(Config),
@@ -908,7 +1057,12 @@ tests(Mods, Config) when is_list(Mods) ->
 		_ -> erlang:halt(1)
 	end.
 
-
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%% @ßee ar_test_node:get_node_namespace/0
+%% @see start/1
+%%--------------------------------------------------------------------
 start_for_tests(Config) ->
 	UniqueName = ar_test_node:get_node_namespace(),
 	TestConfig = Config#config{
@@ -921,8 +1075,12 @@ start_for_tests(Config) ->
 	},
 	start(TestConfig).
 
-%% @doc Run the tests for a set of module(s).
-%% Supports strings so that it can be trivially induced from a unix shell call.
+%%--------------------------------------------------------------------
+%% @doc Run the tests for a set of module(s). Supports strings so that
+%% it can be trivially induced from a unix shell call.
+%% @end
+%% @see tests/2
+%%--------------------------------------------------------------------
 tests(Mod) when not is_list(Mod) -> tests([Mod]);
 tests(Args) ->
 	Mods =
@@ -934,7 +1092,10 @@ tests(Args) ->
 		),
 	tests(Mods, #config{ debug = true }).
 
+%%--------------------------------------------------------------------
 %% @doc Generate the project documentation.
+%% @end
+%%--------------------------------------------------------------------
 docs() ->
 	Mods =
 		lists:filter(
@@ -950,7 +1111,10 @@ docs() ->
 		]
 	).
 
+%%--------------------------------------------------------------------
 %% @doc Ensure that parsing of core command line options functions correctly.
+%% @end
+%%--------------------------------------------------------------------
 commandline_parser_test_() ->
 	{timeout, 20, fun() ->
 		Addr = crypto:strong_rand_bytes(32),
@@ -973,15 +1137,35 @@ commandline_parser_test_() ->
 	end}.
 
 -ifdef(DEBUG).
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 console(_) ->
 	ok.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 console(_, _) ->
 	ok.
 -else.
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 console(Format) ->
 	io:format(Format).
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 console(Format, Params) ->
 	io:format(Format, Params).
 -endif.
